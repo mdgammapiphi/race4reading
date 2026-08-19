@@ -117,8 +117,23 @@
   .checkpoint[aria-selected="true"] .mk{ opacity:1; }
   .checkpoint:hover .dot{ border-color:var(--accent); }
 
-  /* On phones and small tablets, 8 columns get too cramped to read —
-     switch to a horizontally swipeable strip instead of squeezing text. */
+  /* ---------- mobile section picker (replaces the nav strip on phones) ---------- */
+  .tab-select-wrap{ display:none; margin-top:26px; }
+  .select-shell{ position:relative; }
+  .select-shell select{
+    width:100%; font-family:var(--body); font-weight:700; font-size:15px;
+    padding:15px 44px 15px 20px; border-radius:999px; border:1.5px solid var(--wine);
+    background:var(--white); color:var(--wine-dark);
+    appearance:none; -webkit-appearance:none; -moz-appearance:none;
+    cursor:pointer;
+  }
+  .select-shell select:focus{ outline:none; box-shadow:0 0 0 3px var(--accent-soft); }
+  .select-arrow{
+    position:absolute; right:20px; top:50%; transform:translateY(-50%);
+    color:var(--wine); font-size:13px; pointer-events:none;
+  }
+
+  /* Tablets: the 8-column grid gets tight — swipeable strip instead. */
   @media (max-width:820px){
     nav.course{
       overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;
@@ -135,6 +150,12 @@
     .checkpoint{ flex:0 0 auto; min-width:58px; scroll-snap-align:start; }
     .checkpoint .lbl{ font-size:11px; white-space:nowrap; }
     .checkpoint .mk{ font-size:9px; }
+  }
+
+  /* Phones: swap the strip for a simple dropdown — much less cramped. */
+  @media (max-width:560px){
+    nav.course{ display:none; }
+    .tab-select-wrap{ display:block; }
   }
 
   /* ---------- panel ---------- */
@@ -407,6 +428,22 @@
         </button>
       </div>
     </nav>
+
+    <div class="tab-select-wrap">
+      <div class="select-shell">
+        <select id="tab-select" aria-label="Jump to section">
+          <option value="home">Home</option>
+          <option value="about">The Race</option>
+          <option value="register">Register</option>
+          <option value="route">Route</option>
+          <option value="mission">Our Mission</option>
+          <option value="contact">Contact</option>
+          <option value="sponsors">Sponsors</option>
+          <option value="photos">Photos</option>
+        </select>
+        <span class="select-arrow">&#9662;</span>
+      </div>
+    </div>
   </header>
 
   <div class="panel">
@@ -1235,7 +1272,7 @@ function loadEventbriteWidget(){
       eventId: id,
       iframeContainerId: 'eventbrite-widget-container',
       width: '100%',
-      height: 1400
+      height: 2600
     });
     ebInitializedForId = id;
   }
@@ -1276,6 +1313,8 @@ function goTab(name, opts){
   document.querySelectorAll('.checkpoint').forEach(c=>{
     c.setAttribute('aria-selected', c.dataset.tab === name ? 'true' : 'false');
   });
+  const select = document.getElementById('tab-select');
+  if(select) select.value = name;
   if(updateHash){
     history.replaceState(null, '', '#' + name);
   }
@@ -1286,6 +1325,9 @@ function goTab(name, opts){
 
 document.querySelectorAll('.checkpoint').forEach(btn=>{
   btn.addEventListener('click', ()=>goTab(btn.dataset.tab));
+});
+document.getElementById('tab-select').addEventListener('change', function(){
+  goTab(this.value);
 });
 
 // Restore whichever tab was open if the page gets reloaded, and keep the
