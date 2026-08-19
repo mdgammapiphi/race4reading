@@ -171,10 +171,11 @@
 
   .btn-row{ display:flex; flex-wrap:wrap; gap:14px; margin-top:30px; }
   .eventbrite-embed{
-    margin-top:6px; border-radius:16px; overflow:hidden;
+    margin-top:6px; border-radius:16px;
     background:var(--paper-warm); border:1px solid var(--line);
+    min-height:200px;
   }
-  .eventbrite-embed iframe{ display:block; width:100%; }
+  .eventbrite-embed iframe{ display:block; width:100%; border-radius:16px; }
   .btn{
     font-family:var(--body); font-weight:600; font-size:14.5px; text-decoration:none;
     padding:13px 26px; border-radius:999px; display:inline-flex; align-items:center; gap:8px;
@@ -1189,6 +1190,25 @@ async function removePhotoAlbum(id){
 let ebScriptLoading = null;
 let ebInitializedForId = null;
 
+// Eventbrite's checkout widget grows as you move through ticket
+// selection → attendee info → payment. It signals its real height via
+// postMessage; this listens for that and resizes our iframe to match,
+// so later steps don't get cut off.
+window.addEventListener('message', function(e){
+  if(!e.origin || e.origin.indexOf('eventbrite.com') === -1) return;
+  const iframe = document.querySelector('#eventbrite-widget-container iframe');
+  if(!iframe) return;
+  let h = null;
+  if(typeof e.data === 'number'){
+    h = e.data;
+  } else if(e.data && typeof e.data === 'object'){
+    h = e.data.height || (e.data.data && e.data.data.height) || null;
+  }
+  if(h && h > 0){
+    iframe.style.height = h + 'px';
+  }
+});
+
 function loadEventbriteWidget(){
   const block = document.getElementById('eventbrite-embed-block');
   const container = document.getElementById('eventbrite-widget-container');
@@ -1215,7 +1235,7 @@ function loadEventbriteWidget(){
       eventId: id,
       iframeContainerId: 'eventbrite-widget-container',
       width: '100%',
-      height: 900
+      height: 1400
     });
     ebInitializedForId = id;
   }
