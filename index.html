@@ -366,6 +366,13 @@
     padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:var(--paper-warm);
     margin-bottom:8px; font-size:13.5px;
   }
+  .editor-sponsor-row .row-btns{ display:flex; gap:6px; flex-shrink:0; }
+  .editor-sponsor-row.editing{ border-color:var(--wine); }
+  .sponsor-edit-btn{
+    font-family:var(--body); font-size:12px; font-weight:600; color:var(--wine); background:none;
+    border:1px solid var(--wine); border-radius:6px; padding:4px 10px; cursor:pointer;
+  }
+  .sponsor-edit-btn:hover{ background:var(--wine); color:var(--white); }
   .sponsor-remove-btn{
     font-family:var(--body); font-size:12px; font-weight:600; color:#a33; background:none;
     border:1px solid #a33; border-radius:6px; padding:4px 10px; cursor:pointer;
@@ -740,6 +747,7 @@
       <input id="in-sponsor-url" type="text" placeholder="https://example.com/logo.png">
     </div>
     <button class="btn btn-ghost" id="addSponsorBtn" type="button">Add sponsor</button>
+    <button class="btn btn-ghost" id="cancelSponsorEditBtn" type="button" style="display:none;">Cancel</button>
 
     <div class="editor-section-title">Photo albums</div>
     <div class="field">
@@ -858,6 +866,7 @@ const DEFAULTS = {
 };
 
 let content = { ...DEFAULTS };
+let editingSponsorId = null; // set while a sponsor is loaded into the editor form
 
 function render(){
   document.getElementById('hdr-org1').textContent = content.org1;
@@ -1101,16 +1110,25 @@ function renderSponsors(){
     } else {
       sponsors.forEach(s=>{
         const row = document.createElement('div');
-        row.className = 'editor-sponsor-row';
+        row.className = 'editor-sponsor-row' + (s.id === editingSponsorId ? ' editing' : '');
         const label = document.createElement('span');
         label.textContent = s.name + ' — ' + (s.tier || 'Silver') + (s.logoUrl ? '' : ' (no logo)');
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'sponsor-edit-btn';
+        editBtn.textContent = 'Edit';
+        editBtn.onclick = ()=>startEditSponsor(s.id);
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
         removeBtn.className = 'sponsor-remove-btn';
         removeBtn.textContent = 'Remove';
         removeBtn.onclick = ()=>removeSponsor(s.id);
+        const btns = document.createElement('div');
+        btns.className = 'row-btns';
+        btns.appendChild(editBtn);
+        btns.appendChild(removeBtn);
         row.appendChild(label);
-        row.appendChild(removeBtn);
+        row.appendChild(btns);
         list.appendChild(row);
       });
     }
@@ -1126,20 +1144,51 @@ async function addSponsor(){
   const tier = tierInput.value;
   if(!name){ alert('Please enter a sponsor name.'); return; }
   const sponsors = content.sponsors || [];
-  sponsors.push({ id: 'sp_' + Date.now() + '_' + Math.floor(Math.random()*1000), name, logoUrl, tier });
+  if(editingSponsorId){
+    const existing = sponsors.find(s=>s.id === editingSponsorId);
+    if(existing){
+      existing.name = name;
+      existing.logoUrl = logoUrl;
+      existing.tier = tier;
+    }
+  } else {
+    sponsors.push({ id: 'sp_' + Date.now() + '_' + Math.floor(Math.random()*1000), name, logoUrl, tier });
+  }
   content.sponsors = sponsors;
   try{
     await dbSave(content);
-    nameInput.value = '';
-    urlInput.value = '';
+    resetSponsorForm();
     renderSponsors();
   } catch(e){
     alert('Could not save the sponsor right now — please try again.');
   }
 }
 
+// Loads a sponsor into the form above so it can be changed in place.
+function startEditSponsor(id){
+  const s = (content.sponsors || []).find(x=>x.id === id);
+  if(!s) return;
+  editingSponsorId = id;
+  document.getElementById('in-sponsor-name').value = s.name || '';
+  document.getElementById('in-sponsor-url').value = s.logoUrl || '';
+  document.getElementById('in-sponsor-tier').value = s.tier || 'Silver';
+  document.getElementById('addSponsorBtn').textContent = 'Save changes';
+  document.getElementById('cancelSponsorEditBtn').style.display = '';
+  renderSponsors();
+  document.getElementById('in-sponsor-name').focus();
+}
+
+function resetSponsorForm(){
+  editingSponsorId = null;
+  document.getElementById('in-sponsor-name').value = '';
+  document.getElementById('in-sponsor-url').value = '';
+  document.getElementById('addSponsorBtn').textContent = 'Add sponsor';
+  document.getElementById('cancelSponsorEditBtn').style.display = 'none';
+}
+
 async function removeSponsor(id){
   content.sponsors = (content.sponsors || []).filter(s=>s.id !== id);
+  if(id === editingSponsorId) resetSponsorForm();
   try{
     await dbSave(content);
     renderSponsors();
@@ -1414,6 +1463,7 @@ document.getElementById('logoutBtn').addEventListener('click', async ()=>{
 document.getElementById('saveBtn').addEventListener('click', saveContent);
 document.getElementById('resetBtn').addEventListener('click', resetContent);
 document.getElementById('addSponsorBtn').addEventListener('click', addSponsor);
+document.getElementById('cancelSponsorEditBtn').addEventListener('click', ()=>{ resetSponsorForm(); renderSponsors(); });
 document.getElementById('addAlbumBtn').addEventListener('click', addPhotoAlbum);
 
 loadContent();
